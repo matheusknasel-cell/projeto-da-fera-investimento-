@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INVEST PRO – Aprenda a investir. Simule o mercado.</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <style>
+    body { background: #0a0e17; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: #111827; border: 1px solid #1f2937; }
+    .green { color: #10b981; }
+    .red { color: #ef4444; }
+    .btn-primary { background: #10b981; }
+    .btn-danger { background: #ef4444; }
+    #chart-container { width: 100%; height: 380px; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- LOGIN / CADASTRO -->
+  <div id="auth-screen" class="fixed inset-0 flex items-center justify-center bg-[#0a0e17] z-50">
+    <div class="card p-8 rounded-2xl w-full max-w-md shadow-2xl">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold tracking-tight">INVEST <span class="text-emerald-400">PRO</span></h1>
+        <p class="text-slate-400 text-sm mt-1">Aprenda a investir. Simule o mercado. Construa seu futuro.</p>
+        <p class="text-xs text-amber-400 mt-2 font-medium">CONTA DE SIMULAÇÃO • DINHEIRO FICTÍCIO</p>
+      </div>
+
+      <div id="login-form">
+        <input id="email" type="email" placeholder="E-mail" class="w-full mb-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 focus:outline-none focus:border-emerald-500" />
+        <input id="password" type="password" placeholder="Senha" class="w-full mb-4 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 focus:outline-none focus:border-emerald-500" />
+        <button onclick="login()" class="w-full py-3 rounded-lg btn-primary font-semibold text-black mb-3">Entrar</button>
+        <button onclick="showRegister()" class="w-full py-3 rounded-lg bg-slate-800 hover:bg-slate-700">Criar conta</button>
+      </div>
+
+      <div id="register-form" class="hidden">
+        <input id="reg-name" type="text" placeholder="Nome completo" class="w-full mb-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700" />
+        <input id="reg-email" type="email" placeholder="E-mail" class="w-full mb-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700" />
+        <input id="reg-password" type="password" placeholder="Senha" class="w-full mb-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700" />
+        <input id="reg-confirm" type="password" placeholder="Confirmar senha" class="w-full mb-4 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700" />
+        <button onclick="register()" class="w-full py-3 rounded-lg btn-primary font-semibold text-black mb-3">Criar conta</button>
+        <button onclick="showLogin()" class="w-full py-3 rounded-lg bg-slate-800">Já tenho conta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP PRINCIPAL -->
+  <div id="app" class="hidden">
+    <header class="border-b border-slate-800 bg-[#0d1117] px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold">INVEST <span class="text-emerald-400">PRO</span></h1>
+        <span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">SIMULAÇÃO</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <p class="text-xs text-slate-400">Saldo disponível</p>
+          <p id="header-cash" class="font-bold text-emerald-400">R$ 100.000,00</p>
+        </div>
+        <button onclick="logout()" class="text-sm text-slate-400 hover:text-white">Sair</button>
+      </div>
+    </header>
+
+    <div class="flex">
+      <aside class="w-56 min-h-screen border-r border-slate-800 bg-[#0d1117] p-4 hidden md:block">
+        <nav class="space-y-1 text-sm">
+          <button onclick="showPage('dashboard')" class="nav-btn w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800">Dashboard</button>
+          <button onclick="showPage('mercado')" class="nav-btn w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800">Mercado</button>
+          <button onclick="showPage('carteira')" class="nav-btn w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800">Minha Carteira</button>
+          <button onclick="showPage('academia')" class="nav-btn w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800">Academia Invest Pro</button>
+          <button onclick="showPage('simulador')" class="nav-btn w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800">Simulador</button>
+          <button onclick="resetSimulation()" class="w-full text-left px-3 py-2 rounded-lg text-amber-400 hover:bg-amber-500/10 mt-6">Reiniciar Simulação</button>
+        </nav>
+      </aside>
+
+      <main class="flex-1 p-6">
+        <!-- DASHBOARD -->
+        <div id="page-dashboard" class="page">
+          <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="card p-5 rounded-xl">
+              <p class="text-slate-400 text-sm">Patrimônio Total</p>
+              <p id="total-value" class="text-2xl font-bold mt-1">R$ 100.000,00</p>
+            </div>
+            <div class="card p-5 rounded-xl">
+              <p class="text-slate-400 text-sm">Disponível</p>
+              <p id="cash-value" class="text-2xl font-bold mt-1 text-emerald-400">R$ 100.000,00</p>
+            </div>
+            <div class="card p-5 rounded-xl">
+              <p class="text-slate-400 text-sm">Total Investido</p>
+              <p id="invested-value" class="text-2xl font-bold mt-1">R$ 0,00</p>
+            </div>
+            <div class="card p-5 rounded-xl">
+              <p class="text-slate-400 text-sm">Lucro / Prejuízo</p>
+              <p id="pnl-value" class="text-2xl font-bold mt-1">R$ 0,00</p>
+            </div>
+          </div>
+          <div class="card p-6 rounded-xl">
+            <h3 class="font-semibold mb-4">Últimas movimentações</h3>
+            <div id="recent-tx" class="space-y-2 text-sm text-slate-400">Nenhuma operação ainda.</div>
+          </div>
+        </div>
+
+        <!-- MERCADO -->
+        <div id="page-mercado" class="page hidden">
+          <h2 class="text-2xl font-bold mb-4">Mercado</h2>
+          <div class="flex gap-2 mb-4 flex-wrap">
+            <button onclick="filterAssets('all')" class="px-3 py-1 rounded bg-slate-800 text-sm">Todos</button>
+            <button onclick="filterAssets('acoes')" class="px-3 py-1 rounded bg-slate-800 text-sm">Ações</button>
+            <button onclick="filterAssets('fiis')" class="px-3 py-1 rounded bg-slate-800 text-sm">FIIs</button>
+            <button onclick="filterAssets('cripto')" class="px-3 py-1 rounded bg-slate-800 text-sm">Cripto</button>
+            <button onclick="filterAssets('renda_fixa')" class="px-3 py-1 rounded bg-slate-800 text-sm">Renda Fixa</button>
+          </div>
+          <div id="assets-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- DETALHE DO ATIVO + GRÁFICO -->
+        <div id="page-asset" class="page hidden">
+          <button onclick="showPage('mercado')" class="text-sm text-slate-400 hover:text-white mb-4">← Voltar ao Mercado</button>
+          <div class="flex flex-col lg:flex-row gap-6">
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h2 id="asset-title" class="text-2xl font-bold"></h2>
+                  <p id="asset-price" class="text-3xl font-bold mt-1"></p>
+                  <p id="asset-change" class="text-sm"></p>
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="openTradeFromDetail('buy')" class="px-5 py-2 rounded-lg btn-primary font-semibold text-black">Comprar</button>
+                  <button onclick="openTradeFromDetail('sell')" class="px-5 py-2 rounded-lg btn-danger font-semibold text-white">Vender</button>
+                </div>
+              </div>
+              <div class="card p-4 rounded-xl">
+                <div class="flex gap-2 mb-3 text-xs">
+                  <button onclick="changeTimeframe('1D')" class="tf-btn px-3 py-1 rounded bg-emerald-600">1D</button>
+                  <button onclick="changeTimeframe('1W')" class="tf-btn px-3 py-1 rounded bg-slate-800">1S</button>
+                  <button onclick="changeTimeframe('1M')" class="tf-btn px-3 py-1 rounded bg-slate-800">1M</button>
+                  <button onclick="changeTimeframe('3M')" class="tf-btn px-3 py-1 rounded bg-slate-800">3M</button>
+                  <button onclick="changeTimeframe('1Y')" class="tf-btn px-3 py-1 rounded bg-slate-800">1A</button>
+                </div>
+                <div id="chart-container"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARTEIRA -->
+        <div id="page-carteira" class="page hidden">
+          <h2 class="text-2xl font-bold mb-6">Minha Carteira</h2>
+          <div id="portfolio-list" class="space-y-3"></div>
+        </div>
+
+        <!-- ACADEMIA -->
+        <div id="page-academia" class="page hidden">
+          <h2 class="text-2xl font-bold mb-6">Academia Invest Pro</h2>
+          <div class="grid gap-4">
+            <div class="card p-5 rounded-xl">
+              <h3 class="font-semibold">Módulo 1 — Primeiros passos</h3>
+              <p class="text-sm text-slate-400 mt-1">O que são investimentos, bolsa de valores e ações.</p>
+              <button class="mt-3 text-sm text-emerald-400">Iniciar aula →</button>
+            </div>
+            <div class="card p-5 rounded-xl">
+              <h3 class="font-semibold">Módulo 2 — Renda fixa</h3>
+              <p class="text-sm text-slate-400 mt-1">CDB, Tesouro Direto, Selic x IPCA e juros compostos.</p>
+              <button class="mt-3 text-sm text-emerald-400">Iniciar aula →</button>
+            </div>
+            <div class="card p-5 rounded-xl">
+              <h3 class="font-semibold">Módulo 3 — Renda variável</h3>
+              <p class="text-sm text-slate-400 mt-1">Ações, gráficos, candles e volatilidade.</p>
+              <button class="mt-3 text-sm text-emerald-400">Iniciar aula →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIMULADOR -->
+        <div id="page-simulador" class="page hidden">
+          <h2 class="text-2xl font-bold mb-6">Simulador de Investimentos</h2>
+          <div class="card p-6 rounded-xl max-w-lg">
+            <div class="space-y-4">
+              <div>
+                <label class="text-sm text-slate-400">Valor inicial (R$)</label>
+                <input id="sim-initial" type="number" value="10000" class="w-full mt-1 px-3 py-2 rounded bg-slate-900 border border-slate-700" />
+              </div>
+              <div>
+                <label class="text-sm text-slate-400">Aporte mensal (R$)</label>
+                <input id="sim-monthly" type="number" value="500" class="w-full mt-1 px-3 py-2 rounded bg-slate-900 border border-slate-700" />
+              </div>
+              <div>
+                <label class="text-sm text-slate-400">Tempo (anos)</label>
+                <input id="sim-years" type="number" value="10" class="w-full mt-1 px-3 py-2 rounded bg-slate-900 border border-slate-700" />
+              </div>
+              <div>
+                <label class="text-sm text-slate-400">Taxa anual (%)</label>
+                <input id="sim-rate" type="number" value="12" class="w-full mt-1 px-3 py-2 rounded bg-slate-900 border border-slate-700" />
+              </div>
+              <button onclick="runSimulator()" class="w-full py-3 rounded-lg btn-primary font-semibold text-black">Calcular</button>
+              <div id="sim-result" class="hidden mt-4 p-4 bg-slate-900 rounded-lg">
+                <p>Total investido: <span id="sim-total-invested" class="font-bold"></span></p>
+                <p>Patrimônio final: <span id="sim-final" class="font-bold text-emerald-400"></span></p>
+                <p>Rendimento: <span id="sim-return" class="font-bold"></span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL COMPRA/VENDA -->
+  <div id="trade-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+    <div class="card p-6 rounded-2xl w-full max-w-md">
+      <h3 id="trade-title" class="text-xl font-bold mb-4"></h3>
+      <p class="text-sm text-slate-400 mb-1">Preço atual</p>
+      <p id="trade-price" class="text-2xl font-bold mb-4"></p>
+      <input id="trade-qty" type="number" min="1" value="1" class="w-full mb-4 px-4 py-3 rounded-lg bg-slate-900 border border-slate-700" placeholder="Quantidade" />
+      <p class="text-sm mb-4">Total: <span id="trade-total" class="font-bold">R$ 0,00</span></p>
+      <div class="flex gap-3">
+        <button onclick="executeTrade('buy')" class="flex-1 py-3 rounded-lg btn-primary font-semibold text-black">COMPRAR</button>
+        <button onclick="executeTrade('sell')" class="flex-1 py-3 rounded-lg btn-danger font-semibold text-white">VENDER</button>
+      </div>
+      <button onclick="closeTrade()" class="w-full mt-3 py-2 text-slate-400">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    // ====================== FIREBASE ======================
+    const firebaseConfig = {
+      apiKey: "AIzaSyCfJn5d1IrMCXopUloDXH2At_5qTP4Q2WM",
+      authDomain: "projeto-de-investimento-81272.firebaseapp.com",
+      projectId: "projeto-de-investimento-81272",
+      storageBucket: "projeto-de-investimento-81272.firebasestorage.app",
+      messagingSenderId: "247455606609",
+      appId: "1:247455606609:web:bc1768bd7feb6783bd9570",
+      measurementId: "G-8CLKZKYQ5C"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ====================== ESTADO ======================
+    let currentUser = null;
+    let userData = null;
+    let wallet = null;
+    let assets = [];
+    let selectedAsset = null;
+    let chart = null;
+    let candleSeries = null;
+    let currentTimeframe = '1D';
+
+    const DEFAULT_ASSETS = [
+      { id: "PETR4", symbol: "PETR4", name: "Petrobras PN", category: "acoes", currentPrice: 38.45, changePercent: 1.2 },
+      { id: "VALE3", symbol: "VALE3", name: "Vale ON", category: "acoes", currentPrice: 62.10, changePercent: -0.8 },
+      { id: "ITUB4", symbol: "ITUB4", name: "Itaú Unibanco PN", category: "acoes", currentPrice: 34.80, changePercent: 0.5 },
+      { id: "BBAS3", symbol: "BBAS3", name: "Banco do Brasil ON", category: "acoes", currentPrice: 28.90, changePercent: 1.1 },
+      { id: "AAPL", symbol: "AAPL", name: "Apple Inc.", category: "acoes", currentPrice: 225.30, changePercent: 0.9 },
+      { id: "TSLA", symbol: "TSLA", name: "Tesla Inc.", category: "acoes", currentPrice: 248.70, changePercent: -1.5 },
+      { id: "NVDA", symbol: "NVDA", name: "NVIDIA Corp.", category: "acoes", currentPrice: 135.80, changePercent: 2.3 },
+      { id: "HGLG11", symbol: "HGLG11", name: "CSHG Logística", category: "fiis", currentPrice: 162.40, changePercent: 0.3 },
+      { id: "MXRF11", symbol: "MXRF11", name: "Maxi Renda", category: "fiis", currentPrice: 10.15, changePercent: 0.1 },
+      { id: "KNRI11", symbol: "KNRI11", name: "Kinea Renda Imobiliária", category: "fiis", currentPrice: 148.90, changePercent: -0.2 },
+      { id: "XPML11", symbol: "XPML11", name: "XP Malls", category: "fiis", currentPrice: 98.50, changePercent: 0.4 },
+      { id: "VISC11", symbol: "VISC11", name: "Vinci Shopping Centers", category: "fiis", currentPrice: 112.30, changePercent: -0.1 },
+      { id: "BTC", symbol: "BTC", name: "Bitcoin", category: "cripto", currentPrice: 68500, changePercent: 3.2 },
+      { id: "ETH", symbol: "ETH", name: "Ethereum", category: "cripto", currentPrice: 3450, changePercent: 2.1 },
+      { id: "SOL", symbol: "SOL", name: "Solana", category: "cripto", currentPrice: 168.40, changePercent: 4.5 },
+      { id: "XRP", symbol: "XRP", name: "XRP", category: "cripto", currentPrice: 0.62, changePercent: 1.8 },
+      { id: "LTC", symbol: "LTC", name: "Litecoin", category: "cripto", currentPrice: 85.20, changePercent: 0.9 },
+      { id: "TESOURO_SELIC", symbol: "TESOURO SELIC", name: "Tesouro Selic 2029", category: "renda_fixa", currentPrice: 100, changePercent: 0.05 },
+      { id: "TESOURO_IPCA", symbol: "TESOURO IPCA+", name: "Tesouro IPCA+ 2035", category: "renda_fixa", currentPrice: 100, changePercent: 0.06 },
+      { id: "CDB", symbol: "CDB", name: "CDB 100% CDI", category: "renda_fixa", currentPrice: 100, changePercent: 0.04 },
+      { id: "LCI", symbol: "LCI", name: "LCI 90% CDI", category: "renda_fixa", currentPrice: 100, changePercent: 0.035 },
+      { id: "LCA", symbol: "LCA", name: "LCA 92% CDI", category: "renda_fixa", currentPrice: 100, changePercent: 0.038 }
+    ];
+
+    // ====================== AUTH ======================
+    function showRegister() {
+      document.getElementById("login-form").classList.add("hidden");
+      document.getElementById("register-form").classList.remove("hidden");
+    }
+    function showLogin() {
+      document.getElementById("register-form").classList.add("hidden");
+      document.getElementById("login-form").classList.remove("hidden");
+    }
+
+    async function register() {
+      const name = document.getElementById("reg-name").value.trim();
+      const email = document.getElementById("reg-email").value.trim();
+      const pass = document.getElementById("reg-password").value;
+      const confirm = document.getElementById("reg-confirm").value;
+      if (!name || !email || !pass) return alert("Preencha todos os campos");
+      if (pass !== confirm) return alert("Senhas não coincidem");
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection("users").doc(cred.user.uid).set({
+          uid: cred.user.uid, name, email,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+          knowledgeLevel: "iniciante", score: 0,
+          simulationBalance: 100000, totalInvested: 0, totalProfitLoss: 0,
+          profitabilityPercent: 0, isSimulationAccount: true,
+          hasResetSimulation: false, favorites: [], theme: "dark"
+        });
+        await db.collection("wallets").doc(cred.user.uid).set({
+          userId: cred.user.uid, cash: 100000, totalValue: 100000,
+          positions: {}, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("Conta criada! Você começa com R$ 100.000,00 fictícios.");
+      } catch (e) { alert(e.message); }
+    }
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const pass = document.getElementById("password").value;
+      try { await auth.signInWithEmailAndPassword(email, pass); }
+      catch (e) { alert(e.message); }
+    }
+
+    function logout() { auth.signOut(); }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("auth-screen").classList.add("hidden");
+        document.getElementById("app").classList.remove("hidden");
+        await loadUserData();
+        ensureAssets();
+        renderAssets();
+        showPage("dashboard");
+      } else {
+        currentUser = null;
+        document.getElementById("auth-screen").classList.remove("hidden");
+        document.getElementById("app").classList.add("hidden");
+      }
+    });
+
+    // ====================== DATA ======================
+    async function loadUserData() {
+      const userSnap = await db.collection("users").doc(currentUser.uid).get();
+      userData = userSnap.data();
+      const walletSnap = await db.collection("wallets").doc(currentUser.uid).get();
+      wallet = walletSnap.data();
+      updateUI();
+    }
+
+    // CORRIGIDO: usa sempre os ativos locais
+    function ensureAssets() {
+      assets = [...DEFAULT_ASSETS];
+    }
+
+    function updateUI() {
+      if (!wallet) return;
+      const cash = wallet.cash || 0;
+      const total = wallet.totalValue || cash;
+      document.getElementById("header-cash").textContent = formatMoney(cash);
+      document.getElementById("cash-value").textContent = formatMoney(cash);
+      document.getElementById("total-value").textContent = formatMoney(total);
+      document.getElementById("invested-value").textContent = formatMoney(total - cash);
+      const pnl = userData?.totalProfitLoss || 0;
+      const pnlEl = document.getElementById("pnl-value");
+      pnlEl.textContent = formatMoney(pnl);
+      pnlEl.className = "text-2xl font-bold mt-1 " + (pnl >= 0 ? "green" : "red");
+    }
+
+    function formatMoney(v) {
+      return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    // ====================== PAGES ======================
+    function showPage(page) {
+      document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
+      document.getElementById("page-" + page).classList.remove("hidden");
+      if (page === "carteira") renderPortfolio();
+      if (page === "mercado") renderAssets();
+    }
+
+    function filterAssets(cat) { renderAssets(cat); }
+
+    function renderAssets(category = "all") {
+      const list = document.getElementById("assets-list");
+      list.innerHTML = "";
+      const filtered = category === "all" ? assets : assets.filter(a => a.category === category);
+      filtered.forEach(a => {
+        const changeClass = a.changePercent >= 0 ? "green" : "red";
+        const div = document.createElement("div");
+        div.className = "card p-4 rounded-xl cursor-pointer hover:border-emerald-500/50 transition";
+        div.onclick = () => openAsset(a);
+        div.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-bold">${a.symbol}</p>
+              <p class="text-xs text-slate-400">${a.name}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-semibold">${formatMoney(a.currentPrice)}</p>
+              <p class="text-sm ${changeClass}">${a.changePercent >= 0 ? "+" : ""}${a.changePercent.toFixed(2)}%</p>
+            </div>
+          </div>`;
+        list.appendChild(div);
+      });
+    }
+
+    function renderPortfolio() {
+      const list = document.getElementById("portfolio-list");
+      list.innerHTML = "";
+      const positions = wallet?.positions || {};
+      const ids = Object.keys(positions);
+      if (ids.length === 0) {
+        list.innerHTML = `<p class="text-slate-400">Você ainda não possui ativos. Vá ao Mercado e compre!</p>`;
+        return;
+      }
+      ids.forEach(id => {
+        const pos = positions[id];
+        const asset = assets.find(a => a.id === id) || { symbol: id, currentPrice: pos.currentPrice };
+        const pnl = (asset.currentPrice - pos.averagePrice) * pos.quantity;
+        const pnlClass = pnl >= 0 ? "green" : "red";
+        const div = document.createElement("div");
+        div.className = "card p-4 rounded-xl flex justify-between items-center cursor-pointer";
+        div.onclick = () => openAsset(asset);
+        div.innerHTML = `
+          <div>
+            <p class="font-bold">${asset.symbol}</p>
+            <p class="text-sm text-slate-400">${pos.quantity} un. • Preço médio ${formatMoney(pos.averagePrice)}</p>
+          </div>
+          <div class="text-right">
+            <p class="font-semibold">${formatMoney(asset.currentPrice * pos.quantity)}</p>
+            <p class="text-sm ${pnlClass}">${formatMoney(pnl)}</p>
+          </div>`;
+        list.appendChild(div);
+      });
+    }
+
+    // ====================== GRÁFICO ======================
+    function generateCandleData(basePrice, days = 90) {
+      const data = [];
+      let price = basePrice * 0.85;
+      const now = Math.floor(Date.now() / 1000);
+      for (let i = days; i >= 0; i--) {
+        const time = now - i * 86400;
+        const open = price;
+        const change = (Math.random() - 0.48) * basePrice * 0.025;
+        const close = Math.max(0.5, open + change);
+        const high = Math.max(open, close) * (1 + Math.random() * 0.012);
+        const low = Math.min(open, close) * (1 - Math.random() * 0.012);
+        data.push({ time, open: +open.toFixed(2), high: +high.toFixed(2), low: +low.toFixed(2), close: +close.toFixed(2) });
+        price = close;
+      }
+      data[data.length - 1].close = basePrice;
+      data[data.length - 1].high = Math.max(data[data.length - 1].high, basePrice);
+      data[data.length - 1].low = Math.min(data[data.length - 1].low, basePrice);
+      return data;
+    }
+
+    function initChart(container) {
+      if (chart) {
+        chart.remove();
+        chart = null;
+      }
+      chart = LightweightCharts.createChart(container, {
+        layout: {
+          background: { type: 'solid', color: '#111827' },
+          textColor: '#94a3b8',
+        },
+        grid: {
+          vertLines: { color: '#1f2937' },
+          horzLines: { color: '#1f2937' },
+        },
+        width: container.clientWidth,
+        height: 380,
+        timeScale: { borderColor: '#1f2937', timeVisible: true },
+        rightPriceScale: { borderColor: '#1f2937' },
+        crosshair: { mode: 0 }
+      });
+
+      candleSeries = chart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderUpColor: '#10b981',
+        borderDownColor: '#ef4444',
+        wickUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+      });
+
+      window.addEventListener('resize', () => {
+        if (chart && container) chart.applyOptions({ width: container.clientWidth });
+      });
+    }
+
+    function openAsset(asset) {
+      selectedAsset = asset;
+      document.getElementById("asset-title").textContent = `${asset.symbol} — ${asset.name}`;
+      document.getElementById("asset-price").textContent = formatMoney(asset.currentPrice);
+      const changeEl = document.getElementById("asset-change");
+      changeEl.textContent = `${asset.changePercent >= 0 ? '+' : ''}${asset.changePercent.toFixed(2)}%`;
+      changeEl.className = asset.changePercent >= 0 ? 'text-sm green' : 'text-sm red';
+
+      showPage('asset');
+
+      setTimeout(() => {
+        const container = document.getElementById('chart-container');
+        initChart(container);
+        const days = currentTimeframe === '1Y' ? 250 : currentTimeframe === '3M' ? 90 : currentTimeframe === '1M' ? 30 : currentTimeframe === '1W' ? 7 : 1;
+        const data = generateCandleData(asset.currentPrice, days);
+        candleSeries.setData(data);
+        chart.timeScale().fitContent();
+      }, 50);
+    }
+
+    function changeTimeframe(tf) {
+      currentTimeframe = tf;
+      document.querySelectorAll('.tf-btn').forEach(b => {
+        b.classList.remove('bg-emerald-600');
+        b.classList.add('bg-slate-800');
+      });
+      event.target.classList.remove('bg-slate-800');
+      event.target.classList.add('bg-emerald-600');
+
+      if (selectedAsset && candleSeries) {
+        const days = tf === '1Y' ? 250 : tf === '3M' ? 90 : tf === '1M' ? 30 : tf === '1W' ? 7 : 1;
+        const data = generateCandleData(selectedAsset.currentPrice, days);
+        candleSeries.setData(data);
+        chart.timeScale().fitContent();
+      }
+    }
+
+    function openTradeFromDetail(type) {
+      if (!selectedAsset) return;
+      openTrade(selectedAsset);
+    }
+
+    // ====================== TRADE ======================
+    function openTrade(asset) {
+      selectedAsset = asset;
+      document.getElementById("trade-title").textContent = asset.symbol + " – " + asset.name;
+      document.getElementById("trade-price").textContent = formatMoney(asset.currentPrice);
+      document.getElementById("trade-qty").value = 1;
+      updateTradeTotal();
+      document.getElementById("trade-modal").classList.remove("hidden");
+      document.getElementById("trade-modal").classList.add("flex");
+    }
+    function closeTrade() {
+      document.getElementById("trade-modal").classList.add("hidden");
+      document.getElementById("trade-modal").classList.remove("flex");
+    }
+    document.getElementById("trade-qty").addEventListener("input", updateTradeTotal);
+    function updateTradeTotal() {
+      if (!selectedAsset) return;
+      const qty = Number(document.getElementById("trade-qty").value) || 0;
+      document.getElementById("trade-total").textContent = formatMoney(qty * selectedAsset.currentPrice);
+    }
+
+    async function executeTrade(type) {
+      if (!selectedAsset || !wallet) return;
+      const qty = Number(document.getElementById("trade-qty").value);
+      if (qty <= 0) return alert("Quantidade inválida");
+      const price = selectedAsset.currentPrice;
+      const total = qty * price;
+
+      if (type === "buy") {
+        if (wallet.cash < total) return alert("Saldo insuficiente");
+        const pos = wallet.positions[selectedAsset.id] || { quantity: 0, averagePrice: 0 };
+        const newQty = pos.quantity + qty;
+        const newAvg = ((pos.quantity * pos.averagePrice) + total) / newQty;
+        wallet.positions[selectedAsset.id] = {
+          quantity: newQty, averagePrice: newAvg, currentPrice: price,
+          totalValue: newQty * price, profitLoss: (price - newAvg) * newQty, lastUpdated: new Date()
+        };
+        wallet.cash -= total;
+      } else {
+        const pos = wallet.positions[selectedAsset.id];
+        if (!pos || pos.quantity < qty) return alert("Você não possui essa quantidade");
+        const newQty = pos.quantity - qty;
+        if (newQty === 0) delete wallet.positions[selectedAsset.id];
+        else {
+          pos.quantity = newQty;
+          pos.totalValue = newQty * price;
+          pos.profitLoss = (price - pos.averagePrice) * newQty;
+        }
+        wallet.cash += total;
+      }
+
+      let invested = 0;
+      Object.keys(wallet.positions).forEach(id => {
+        const p = wallet.positions[id];
+        const a = assets.find(x => x.id === id);
+        invested += p.quantity * (a ? a.currentPrice : p.currentPrice);
+      });
+      wallet.totalValue = wallet.cash + invested;
+      wallet.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+      await db.collection("wallets").doc(currentUser.uid).set(wallet);
+      await db.collection("transactions").add({
+        userId: currentUser.uid, assetId: selectedAsset.id, type,
+        quantity: qty, price, totalValue: total, balanceAfter: wallet.cash,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await loadUserData();
+      closeTrade();
+      alert(type === "buy" ? "Compra realizada!" : "Venda realizada!");
+      if (!document.getElementById("page-carteira").classList.contains("hidden")) renderPortfolio();
+    }
+
+    // ====================== RESET ======================
+    async function resetSimulation() {
+      if (!confirm("Isso vai zerar sua carteira e devolver R$ 100.000,00. Continuar?")) return;
+      await db.collection("wallets").doc(currentUser.uid).set({
+        userId: currentUser.uid, cash: 100000, totalValue: 100000,
+        positions: {}, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      await db.collection("users").doc(currentUser.uid).update({
+        simulationBalance: 100000, totalInvested: 0, totalProfitLoss: 0,
+        profitabilityPercent: 0, hasResetSimulation: true
+      });
+      await db.collection("transactions").add({
+        userId: currentUser.uid, type: "reset", totalValue: 100000,
+        balanceAfter: 100000, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      await loadUserData();
+      alert("Simulação reiniciada!");
+    }
+
+    // ====================== SIMULADOR ======================
+    function runSimulator() {
+      const initial = Number(document.getElementById("sim-initial").value) || 0;
+      const monthly = Number(document.getElementById("sim-monthly").value) || 0;
+      const years = Number(document.getElementById("sim-years").value) || 0;
+      const rate = (Number(document.getElementById("sim-rate").value) || 0) / 100;
+      const months = years * 12;
+      const monthlyRate = rate / 12;
+      let total = initial;
+      for (let i = 0; i < months; i++) total = total * (1 + monthlyRate) + monthly;
+      const totalInvested = initial + monthly * months;
+      document.getElementById("sim-total-invested").textContent = formatMoney(totalInvested);
+      document.getElementById("sim-final").textContent = formatMoney(total);
+      document.getElementById("sim-return").textContent = formatMoney(total - totalInvested);
+      document.getElementById("sim-result").classList.remove("hidden");
+    }
+  </script>
+</body>
+</html>
